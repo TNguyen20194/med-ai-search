@@ -1,25 +1,17 @@
 services:
-  # Optional: CPU-only variant
-  llm-server-cpu:
+  llama:
+    image: llama-demo
+    devices:
+      - "/dev/dri/card1:/dev/dri/card1"
+      - "/dev/dri/renderD128:/dev/dri/renderD128"
     build:
       context: .
-      dockerfile: Dockerfile.cpu
-    container_name: local-llm-server-cpu
+    restart: unless-stopped
     ports:
-      - "8001:8000"
+      - 8000:8000
+    command: --no-mmap --no-warmup --model /models/Qwen3-VL-2B-Instruct-Q8_9.gguf --mmproj /models/mmproj-F32.gguf --port 8000 --host 0.0.0.0 --predict 512 --temp 0.7 --top-p 0.8 --top-k 20 --presence-penalty 1.5
     volumes:
       - ./models:/models:ro
-    environment:
-      - LLAMA_ARG_MODEL=/models/qwen2.5-7b-instruct-fp16-00001-of-00004.gguf
-      - LLAMA_ARG_CTX_SIZE=2048
-      - LLAMA_ARG_THREADS=8
-      - LLAMA_ARG_HOST=0.0.0.0
-      - LLAMA_ARG_PORT=8000
-    deploy:
-      resources:
-        limits:
-          memory: 16G
-          cpus: "8.0"
-    restart: unless-stopped
-    profiles:
-      - cpu-only 
+
+volumes:
+  models:
