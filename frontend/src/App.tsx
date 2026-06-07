@@ -1,11 +1,11 @@
 import './App.css'
-import GoogleSearchBar from "./components/Google-search-bar/GoogleSearchBar"
+import MedSearchBar from "./components/MedSearchBar/MedSearchBar"
 
 function App() {
 
   return (
     <>
-    <GoogleSearchBar />
+    <MedSearchBar />
     </>
   )
 }

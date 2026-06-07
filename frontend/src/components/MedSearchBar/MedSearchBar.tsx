@@ -35,45 +35,59 @@ const sampleData: SearchData[] = [
   },
 ];
 
-const GoogleSearchBar = () => {
+const MedSearchBar = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [searchResults, setSearchResults] = useState<SearchData[]>([]);
 
-  const debounce = (func: (term: string) => void, delay: number) => {
-    let timeoutId: ReturnType<typeof setTimeout>;
+  //   const debounce = (func: (term: string) => void, delay: number) => {
+  //     let timeoutId: ReturnType<typeof setTimeout>;
 
-    return (term: string) => {
-      clearTimeout(timeoutId);
-      timeoutId = setTimeout(() => func(term), delay);
-    };
-  };
+  //     return (term: string) => {
+  //       clearTimeout(timeoutId);
+  //       timeoutId = setTimeout(() => func(term), delay);
+  //     };
+  //   };
 
- const debouncedSearch = useMemo(
-  () =>
-    debounce((term: string) => {
-      if (term.trim() === "") {
-        setSearchResults([]);
-      } else {
-        const results = sampleData.filter((item) =>
-          item.title.toLowerCase().includes(term.toLowerCase()),
-        );
+  //  const debouncedSearch = useMemo(
+  //   () =>
+  //     debounce((term: string) => {
+  //       if (term.trim() === "") {
+  //         setSearchResults([]);
+  //       } else {
+  //         const results = sampleData.filter((item) =>
+  //           item.title.toLowerCase().includes(term.toLowerCase()),
+  //         );
 
-        setSearchResults(results);
-      }
-    }, 300),
-  [],
-);
+  //         setSearchResults(results);
+  //       }
+  //     }, 300),
+  //   [],
+  // );
 
-const handleSearch = useCallback(
-  (term: string) => {
-    debouncedSearch(term);
-  },
-  [debouncedSearch],
-);
+  // const handleSearch = useCallback(
+  //   (term: string) => {
+  //     debouncedSearch(term);
+  //   },
+  //   [debouncedSearch],
+  // );
 
   useEffect(() => {
-    handleSearch(searchTerm);
-  }, [searchTerm, handleSearch]);
+    const timeoutId = setTimeout(() => {
+      if (searchTerm.trim() === "") {
+        setSearchResults([]);
+        return;
+      }
+
+      const results = sampleData.filter((item) =>
+        item.title.toLowerCase().includes(searchTerm.toLowerCase()),
+      );
+      setSearchResults(results);
+    }, 300);
+
+    return () => {
+      clearTimeout(timeoutId);
+    };
+  }, [searchTerm]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchTerm(e.target.value);
@@ -94,7 +108,7 @@ const handleSearch = useCallback(
             placeholder="Search Google or type a URL"
           />
           <div className="absolute right-0 top-0 mr-4 mt-3 flex items-center">
-            <button
+            {/* <button
               type="button"
               className="mr-3 text-gray-400 hover:text-gray-600"
               onClick={() =>
@@ -105,7 +119,7 @@ const handleSearch = useCallback(
             >
               <Mic size={20} />
               {""}
-            </button>
+            </button> */}
             <button type="submit" className="text-blue-500 hover:text-blue-600">
               <Search size={20} /> {""}
             </button>
@@ -136,4 +150,4 @@ const handleSearch = useCallback(
   );
 };
 
-export default GoogleSearchBar;
+export default MedSearchBar;
