@@ -1,5 +1,5 @@
-import { useState, useCallback, useEffect, useMemo } from "react";
-import { Search, Mic } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Search } from "lucide-react";
 import { sampleData, type SearchData } from "../../data/searchData";
 
 const MedSearchBar = () => {
@@ -150,11 +150,11 @@ const MedSearchBar = () => {
                       )}
 
                       {result.tags && (
-                        <div className="mt-2 flex felx-wrap gap-2">
+                        <div className="mt-2 flex flex-wrap gap-1.5 sm:gap-2">
                           {result.tags.map((tag) => (
                             <span
-                            key={tag}
-                            className="rounded-full bg-pink-100 px-3 py-1 text-xs font-medium text-gray-600"
+                              key={tag}
+                              className="max-w-full rounded-full bg-pink-100 px-2.5 py-1 text-[11px] font-medium text-gray-600 break-words sm:px-3 sm:text-xs"
                             >
                               {tag}
                             </span>
