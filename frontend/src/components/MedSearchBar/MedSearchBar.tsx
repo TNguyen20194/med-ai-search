@@ -50,9 +50,13 @@ const MedSearchBar = () => {
 
         return (
           item.title.toLowerCase().includes(term) ||
+          item.condition.toLowerCase().includes(term) ||
           item.category.toLowerCase().includes(term) ||
-          item.tip?.toLowerCase().includes(term) ||
-          item.tags?.some((tag) => tag.toLowerCase().includes(term))
+          item.content?.toLowerCase().includes(term) ||
+          item.tags?.some((tag) => tag.toLowerCase().includes(term)) ||
+          item.audience?.some((audience) =>
+            audience.toLowerCase().includes(term),
+          )
         );
       });
       setSearchResults(results);
@@ -80,7 +84,7 @@ const MedSearchBar = () => {
   });
 
   return (
-    <div className="flex min-h-screen flex-col items-center bg-white p4 ">
+    <div className="flex min-h-screen flex-col items-center bg-white p-4 ">
       <form
         onSubmit={(e) => e.preventDefault()}
         className="mb-8 mt-8 w-full max-w-2xl"
@@ -91,7 +95,7 @@ const MedSearchBar = () => {
             value={searchTerm}
             onChange={handleInputChange}
             className="w-full rounded-full border border-gray-200 bg-white px-5 py-3 pr-20 text-base text-gray-900 shadow-md transition-shadow duration-200 hover:shadow-lg focus:border-gray-300 focus:outline-none"
-            placeholder="Search Google or type a URL"
+            placeholder="Search by conditions, therapy, worksheet, tips, or course"
           />
           <div className="absolute right-0 top-0 mr-4 mt-3 flex items-center">
             <button type="submit" className="text-blue-500 hover:text-blue-600">
@@ -135,15 +139,32 @@ const MedSearchBar = () => {
                         </span>
                       )}
 
-                      {result.tip && (
+                      <p className="text-xs font-semibold text-gray-400">
+                        {result.condition.toUpperCase()}
+                      </p>
+
+                      {result.content && (
                         <p className="mt-1 text-sm text-gray-700">
-                          {result.tip}
+                          {result.content}
                         </p>
                       )}
 
                       {result.tags && (
+                        <div className="mt-2 flex felx-wrap gap-2">
+                          {result.tags.map((tag) => (
+                            <span
+                            key={tag}
+                            className="rounded-full bg-pink-100 px-3 py-1 text-xs font-medium text-gray-600"
+                            >
+                              {tag}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+
+                      {result.audience && (
                         <p className="mt-1 text-xs text-gray-400">
-                          {result.tags.join(", ")}
+                          Audience: {result.audience.join(", ")}
                         </p>
                       )}
                     </li>
