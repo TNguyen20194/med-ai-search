@@ -1,17 +1,43 @@
 services:
-  llama:
-    image: llama-demo
-    devices:
-      - "/dev/dri/card1:/dev/dri/card1"
-      - "/dev/dri/renderD128:/dev/dri/renderD128"
-    build:
-      context: .
-    restart: unless-stopped
-    ports:
-      - 8000:8000
-    command: --no-mmap --no-warmup --model /models/Qwen3-VL-2B-Instruct-Q8_9.gguf --mmproj /models/mmproj-F32.gguf --port 8000 --host 0.0.0.0 --predict 512 --temp 0.7 --top-p 0.8 --top-k 20 --presence-penalty 1.5
+  model-init:
+    image: curlimages/curl:8.8.0
+    container_name: local-llm-model-init
     volumes:
-      - ./models:/models:ro
+      - ./models:/models
+    environment:
+      - MODEL_FILE=qwen2.5-1.5b-instruct-q4_k_m.gguf
+      - MODEL_URL=https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct-GGUF/resolve/main/qwen2.5-1.5b-instruct-q4_k_m.gguf
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - >
+        set -e; if [ ! -f "/models/$$MODEL_FILE" ]; then
+        echo "==> Downloading $$MODEL_FILE";
+        curl -L --fail --retry 3 --retry-delay 3 -o "/models/$$MODEL_FILE" "$$MODEL_URL";
+        else
+        echo "==> Model already exists at /models/$$MODEL_FILE";
+        fi
+    restart: "no"
 
-volumes:
-  models:
+  llm:
+    image: ghcr.io/ggml-org/llama.cpp:server
+    container_name: local-llm-server
+    depends_on:
+      model-init:
+        condition: service_completed_successfully
+    ports:
+      - "8000:8000"
+    volumes:
+      # models are persisted here so they aren't re-downloaded on container restart
+      - ./models:/models
+    environment:
+      - LLAMA_ARG_MODEL=/models/qwen2.5-1.5b-instruct-q4_k_m.gguf
+      - LLAMA_ARG_CTX_SIZE=2048
+      - LLAMA_ARG_THREADS=4
+      - LLAMA_ARG_HOST=0.0.0.0
+      - LLAMA_ARG_PORT=8000
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+          cpus: "4.0"
+    restart: unless-stopped
