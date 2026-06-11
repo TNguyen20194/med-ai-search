@@ -1,4 +1,4 @@
-# Dockerfile.cpu
+# Dockerfile.cpu — CPU-only llama.cpp server with auto model download from HuggingFace
 FROM ubuntu:22.04 AS builder
 
 ENV DEBIAN_FRONTEND=noninteractive
@@ -11,26 +11,34 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /build
-RUN git clone https://github.com/ggerganov/llama.cpp.git && \
+ARG BUILD_JOBS=2
+
+RUN git clone --depth 1 https://github.com/ggerganov/llama.cpp.git && \
     cd llama.cpp && \
     cmake -B build \
       -DLLAMA_CURL=ON && \
-    cmake --build build --config Release -j$(nproc)
+        cmake --build build --config Release --target llama-server -j${BUILD_JOBS}
 
 FROM ubuntu:22.04
+
+ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && apt-get install -y \
     libcurl4-openssl-dev \
     libgomp1 \
+    wget \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=builder /build/llama.cpp/build/bin/llama-server /usr/local/bin/llama-server
 
 RUN mkdir -p /models
 
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
 EXPOSE 8000
 
-HEALTHCHECK --interval=30s --timeout=10s --start-period=120s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=10s --start-period=180s --retries=5 \
     CMD curl -f http://localhost:8000/health || exit 1
 
-ENTRYPOINT ["llama-server"] 
+ENTRYPOINT ["/entrypoint.sh"] 

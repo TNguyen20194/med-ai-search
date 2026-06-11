@@ -1,25 +1,43 @@
 services:
-  # Optional: CPU-only variant
-  llm-server-cpu:
-    build:
-      context: .
-      dockerfile: Dockerfile.cpu
-    container_name: local-llm-server-cpu
-    ports:
-      - "8001:8000"
+  model-init:
+    image: curlimages/curl:8.8.0
+    container_name: local-llm-model-init
     volumes:
-      - ./models:/models:ro
+      - ./models:/models
     environment:
-      - LLAMA_ARG_MODEL=/models/qwen2.5-7b-instruct-fp16-00001-of-00004.gguf
+      - MODEL_FILE=qwen2.5-1.5b-instruct-q4_k_m.gguf
+      - MODEL_URL=https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct-GGUF/resolve/main/qwen2.5-1.5b-instruct-q4_k_m.gguf
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - >
+        set -e; if [ ! -f "/models/$$MODEL_FILE" ]; then
+        echo "==> Downloading $$MODEL_FILE";
+        curl -L --fail --retry 3 --retry-delay 3 -o "/models/$$MODEL_FILE" "$$MODEL_URL";
+        else
+        echo "==> Model already exists at /models/$$MODEL_FILE";
+        fi
+    restart: "no"
+
+  llm:
+    image: ghcr.io/ggml-org/llama.cpp:server
+    container_name: local-llm-server
+    depends_on:
+      model-init:
+        condition: service_completed_successfully
+    ports:
+      - "8000:8000"
+    volumes:
+      # models are persisted here so they aren't re-downloaded on container restart
+      - ./models:/models
+    environment:
+      - LLAMA_ARG_MODEL=/models/qwen2.5-1.5b-instruct-q4_k_m.gguf
       - LLAMA_ARG_CTX_SIZE=2048
-      - LLAMA_ARG_THREADS=8
+      - LLAMA_ARG_THREADS=4
       - LLAMA_ARG_HOST=0.0.0.0
       - LLAMA_ARG_PORT=8000
     deploy:
       resources:
         limits:
-          memory: 16G
-          cpus: "8.0"
+          memory: 4G
+          cpus: "4.0"
     restart: unless-stopped
-    profiles:
-      - cpu-only 
