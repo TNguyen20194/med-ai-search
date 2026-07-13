@@ -1,10 +1,38 @@
 import { useState, useEffect } from "react";
 import { Search } from "lucide-react";
 import { sampleData, type SearchData } from "../../data/searchData";
+import { useDebounce } from "../../hooks";
+import suggestions from "./suggestions";
+
+import { getLLMResponse } from "../../services/llm";
 
 const MedSearchBar = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [searchResults, setSearchResults] = useState<SearchData[]>([]);
+  const [searchSuggestions, setSearchSuggestions] = useState<
+    {
+      term: string;
+    }[]
+  >([]);
+
+  const [llmResponse, setLLMResponse] = useState<any>(null);
+
+  const debouncedSearchTerm = useDebounce(searchTerm);
+
+  useEffect(() => {
+    console.log("triggered get suggestions");
+    console.log("debouncedSearchTerm =", debouncedSearchTerm);
+    if (debouncedSearchTerm.trim() === "") {
+      return setSearchSuggestions([]);
+    } else {
+      const results = suggestions.filter((item) => {
+        return JSON.stringify(item).includes(debouncedSearchTerm.toLowerCase());
+      });
+
+      console.log("suggestions results =", results);
+      setSearchSuggestions(results);
+    }
+  }, [debouncedSearchTerm]);
 
   //   const debounce = (func: (term: string) => void, delay: number) => {
   //     let timeoutId: ReturnType<typeof setTimeout>;
@@ -38,36 +66,40 @@ const MedSearchBar = () => {
   //   [debouncedSearch],
   // );
 
-  useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      if (searchTerm.trim() === "") {
-        setSearchResults([]);
-        return;
-      }
+  // useEffect(() => {
+  //   const timeoutId = setTimeout(() => {
+  //     if (searchTerm.trim() === "") {
+  //       setSearchResults([]);
+  //       return;
+  //     }
 
-      const results = sampleData.filter((item) => {
-        const term = searchTerm.toLowerCase();
+  //     const results = sampleData.filter((item) => {
+  //       const term = searchTerm.toLowerCase();
 
-        return (
-          item.title.toLowerCase().includes(term) ||
-          item.condition.toLowerCase().includes(term) ||
-          item.category.toLowerCase().includes(term) ||
-          item.content?.toLowerCase().includes(term) ||
-          item.tags?.some((tag) => tag.toLowerCase().includes(term)) ||
-          item.audience?.some((audience) =>
-            audience.toLowerCase().includes(term),
-          )
-        );
-      });
-      setSearchResults(results);
-    }, 300);
+  //       return (
+  //         item.title.toLowerCase().includes(term) ||
+  //         item.condition.toLowerCase().includes(term) ||
+  //         item.category.toLowerCase().includes(term) ||
+  //         item.content?.toLowerCase().includes(term) ||
+  //         item.tags?.some((tag) => tag.toLowerCase().includes(term)) ||
+  //         item.audience?.some((audience) =>
+  //           audience.toLowerCase().includes(term),
+  //         )
+  //       );
+  //     });
+  //     setSearchResults(results);
+  //   }, 300);
 
-    return () => {
-      clearTimeout(timeoutId);
-    };
-  }, [searchTerm]);
+  //   return () => {
+  //     clearTimeout(timeoutId);
+  //   };
+  // }, [searchTerm]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.value.trim() === "") {
+      setSearchResults([]);
+      setSearchSuggestions([]);
+    }
     setSearchTerm(e.target.value);
   };
 
@@ -97,6 +129,28 @@ const MedSearchBar = () => {
             className="w-full rounded-full border border-gray-200 bg-white px-5 py-3 pr-20 text-base text-gray-900 shadow-md transition-shadow duration-200 hover:shadow-lg focus:border-gray-300 focus:outline-none"
             placeholder="Search by conditions, therapy, worksheet, tips, or course"
           />
+          <div className="absolute left-0 top-10 ml-4 mt-3 flex items-center">
+            {searchSuggestions.length > 0 && (
+              <div className="rounded-md bg-white p-2 shadow-lg">
+                {searchSuggestions.map((suggestion, index) => (
+                  <div
+                    key={index}
+                    className="cursor-pointer px-3 py-1 text-sm text-gray-700 hover:bg-gray-100"
+                    onClick={async () => {
+                      setSearchTerm(suggestion.term);
+                      setSearchSuggestions([]);
+
+                      console.log("Clicked suggestion:", suggestion.term);
+                      const res = await getLLMResponse(suggestion.term);
+                      setLLMResponse(res);
+                    }}
+                  >
+                    {suggestion.term}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
           <div className="absolute right-0 top-0 mr-4 mt-3 flex items-center">
             <button type="submit" className="text-blue-500 hover:text-blue-600">
               <Search size={20} /> {""}
@@ -104,6 +158,17 @@ const MedSearchBar = () => {
           </div>
         </div>
       </form>
+
+      {llmResponse && (
+        <div className="w-full max-w-2xl rounded-lg bg-green-50 p-4 shadow-md">
+          <h2 className="mb-4 text-xl font-bold text-green-900">
+            LLM Response:
+          </h2>
+          <pre className="whitespace-pre-wrap break-words text-sm text-green-700">
+            {JSON.stringify(llmResponse, null, 2)}
+          </pre>
+        </div>
+      )}
 
       {searchResults.length > 0 && (
         <div className="w-full max-w-2xl rounded-lg bg-white p-4 shadow-md">
