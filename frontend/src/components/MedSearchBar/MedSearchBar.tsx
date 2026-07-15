@@ -2,6 +2,10 @@ import { useState, useEffect } from "react";
 import { Search } from "lucide-react";
 import { useDebounce } from "../../hooks";
 import suggestions from "./suggestions";
+import {
+  searchResources,
+  type SearchResource,
+} from "../../services/searchResources";
 
 import { getLLMResponse } from "../../services/llm";
 
@@ -16,6 +20,11 @@ const MedSearchBar = () => {
   const [hasSelectedSuggestion, setHasSelectedSuggestion] = useState(false);
 
   const [llmResponse, setLLMResponse] = useState<string | null>(null);
+
+  //SerpAPI resources
+  const [resources, setResources] = useState<SearchResource[]>([]);
+  const [isSearchching, setIsSearching] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
 
   const debouncedSearchTerm = useDebounce(searchTerm);
 
@@ -60,8 +69,21 @@ const MedSearchBar = () => {
     if (!query) return;
 
     setSearchSuggestions([]);
-    const res = await getLLMResponse(query);
-    setLLMResponse(res);
+    setIsSearching(true);
+    setSearchError(null);
+
+    try {
+      const serpResults = await searchResources(query);
+      setResources(serpResults);
+
+      const res = await getLLMResponse(query);
+      setLLMResponse(res);
+    } catch (error) {
+      console.error("Search failed: ", error);
+      setSearchError("Search failed. Please try again.");
+    } finally {
+      setIsSearching(false);
+    }
   };
 
   // const groupedResults: Record<string, SearchData[]> = {};
@@ -122,6 +144,50 @@ const MedSearchBar = () => {
         </div>
       </form>
 
+      {isSearchching && (
+        <p className="mb-4 text-sm text-gray-500">Searching resources...</p>
+      )}
+
+      {searchError && <p className="mb-4 text-sm tex-red-600">{searchError}</p>}
+
+      {resources.length > 0 && (
+        <div className="mb-6 w-full max-w-2xl rounded-lg bg-white p-4 shadow-md">
+          <h2 className="mb-4 text-xl font-bold text-gray-900">
+            Rources Result
+          </h2>
+
+          <ul>
+            {resources.map((resource) => (
+              <li
+                key={resource.url}
+                className="mb-4 border-b border-gray-100 pb-3 last:border-b-0"
+              >
+                <a
+                  href={resource.url}
+                  target="_blank"
+                  rel="noopener moreferrer"
+                  className="font-medium text-blue-600 hover:underline"
+                >
+                  {resource.title}
+                </a>
+
+                {resource.source && (
+                  <p className="mt-1 text-xs font-semibold text-gray-400">
+                    {resource.source}
+                  </p>
+                )}
+
+                {resource.snippet && (
+                  <p className="mt-1 text-sm text-gray-700">
+                    {resource.snippet}
+                  </p>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       {llmResponse && (
         <div className="w-full max-w-2xl rounded-lg bg-green-50 p-4 shadow-md">
           <h2 className="mb-4 text-xl font-bold text-green-900">
@@ -129,9 +195,7 @@ const MedSearchBar = () => {
           </h2>
 
           <div className="mb-4 rounded-md bg-blue-50 p-4">
-            <p className="text-sm font-semibold text-blue-700">
-              Search Term
-            </p>
+            <p className="text-sm font-semibold text-blue-700">Search Term</p>
             <p className="mt-1 text-base font-medium text-gray-900">
               {searchTerm}
             </p>
@@ -141,7 +205,6 @@ const MedSearchBar = () => {
             <p className="whitespace-pre-wrap break-words text-sm leading-6 text-gray-700">
               {formattedResponse}
             </p>
-
           </div>
           <pre className="whitespace-pre-wrap break-words text-sm text-green-700">
             {JSON.stringify(llmResponse, null, 2)}
