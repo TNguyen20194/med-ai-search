@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { Search } from "lucide-react";
-import { sampleData, type SearchData } from "../../data/searchData";
 import { useDebounce } from "../../hooks";
 import suggestions from "./suggestions";
 
@@ -8,20 +7,25 @@ import { getLLMResponse } from "../../services/llm";
 
 const MedSearchBar = () => {
   const [searchTerm, setSearchTerm] = useState("");
-  const [searchResults, setSearchResults] = useState<SearchData[]>([]);
   const [searchSuggestions, setSearchSuggestions] = useState<
     {
       term: string;
     }[]
   >([]);
 
-  const [llmResponse, setLLMResponse] = useState<any>(null);
+  const [hasSelectedSuggestion, setHasSelectedSuggestion] = useState(false);
+
+  const [llmResponse, setLLMResponse] = useState<string | null>(null);
 
   const debouncedSearchTerm = useDebounce(searchTerm);
 
   useEffect(() => {
     console.log("triggered get suggestions");
     console.log("debouncedSearchTerm =", debouncedSearchTerm);
+    if (hasSelectedSuggestion) {
+      return setSearchSuggestions([]);
+    }
+
     if (debouncedSearchTerm.trim() === "") {
       return setSearchSuggestions([]);
     } else {
@@ -32,93 +36,53 @@ const MedSearchBar = () => {
       console.log("suggestions results =", results);
       setSearchSuggestions(results);
     }
-  }, [debouncedSearchTerm]);
-
-  //   const debounce = (func: (term: string) => void, delay: number) => {
-  //     let timeoutId: ReturnType<typeof setTimeout>;
-
-  //     return (term: string) => {
-  //       clearTimeout(timeoutId);
-  //       timeoutId = setTimeout(() => func(term), delay);
-  //     };
-  //   };
-
-  //  const debouncedSearch = useMemo(
-  //   () =>
-  //     debounce((term: string) => {
-  //       if (term.trim() === "") {
-  //         setSearchResults([]);
-  //       } else {
-  //         const results = sampleData.filter((item) =>
-  //           item.title.toLowerCase().includes(term.toLowerCase()),
-  //         );
-
-  //         setSearchResults(results);
-  //       }
-  //     }, 300),
-  //   [],
-  // );
-
-  // const handleSearch = useCallback(
-  //   (term: string) => {
-  //     debouncedSearch(term);
-  //   },
-  //   [debouncedSearch],
-  // );
-
-  // useEffect(() => {
-  //   const timeoutId = setTimeout(() => {
-  //     if (searchTerm.trim() === "") {
-  //       setSearchResults([]);
-  //       return;
-  //     }
-
-  //     const results = sampleData.filter((item) => {
-  //       const term = searchTerm.toLowerCase();
-
-  //       return (
-  //         item.title.toLowerCase().includes(term) ||
-  //         item.condition.toLowerCase().includes(term) ||
-  //         item.category.toLowerCase().includes(term) ||
-  //         item.content?.toLowerCase().includes(term) ||
-  //         item.tags?.some((tag) => tag.toLowerCase().includes(term)) ||
-  //         item.audience?.some((audience) =>
-  //           audience.toLowerCase().includes(term),
-  //         )
-  //       );
-  //     });
-  //     setSearchResults(results);
-  //   }, 300);
-
-  //   return () => {
-  //     clearTimeout(timeoutId);
-  //   };
-  // }, [searchTerm]);
+  }, [debouncedSearchTerm, hasSelectedSuggestion]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setHasSelectedSuggestion(false);
+
     if (e.target.value.trim() === "") {
-      setSearchResults([]);
       setSearchSuggestions([]);
     }
     setSearchTerm(e.target.value);
   };
 
-  const groupedResults: Record<string, SearchData[]> = {};
+  const formattedResponse = llmResponse
+    ? llmResponse
+        .replaceAll("{", "")
+        .replaceAll("}", "")
+        .replaceAll('"', "")
+        .replaceAll(",", "\n")
+    : "";
 
-  searchResults.forEach((result) => {
-    const category = result.category;
+  const handleSearch = async (term: string) => {
+    const query = term.trim();
+    if (!query) return;
 
-    if (!groupedResults[category]) {
-      groupedResults[category] = [];
-    }
+    setSearchSuggestions([]);
+    const res = await getLLMResponse(query);
+    setLLMResponse(res);
+  };
 
-    groupedResults[category].push(result);
-  });
+  // const groupedResults: Record<string, SearchData[]> = {};
+
+  // searchResults.forEach((result) => {
+  //   const category = result.category;
+
+  //   if (!groupedResults[category]) {
+  //     groupedResults[category] = [];
+  //   }
+
+  //   groupedResults[category].push(result);
+  // });
 
   return (
     <div className="flex min-h-screen flex-col items-center bg-white p-4 ">
       <form
-        onSubmit={(e) => e.preventDefault()}
+        onSubmit={(e) => {
+          e.preventDefault();
+          handleSearch(searchTerm);
+        }}
         className="mb-8 mt-8 w-full max-w-2xl"
       >
         <div className="relative">
@@ -136,13 +100,12 @@ const MedSearchBar = () => {
                   <div
                     key={index}
                     className="cursor-pointer px-3 py-1 text-sm text-gray-700 hover:bg-gray-100"
-                    onClick={async () => {
+                    onClick={() => {
+                      setHasSelectedSuggestion(true);
                       setSearchTerm(suggestion.term);
-                      setSearchSuggestions([]);
+                      handleSearch(suggestion.term);
 
                       console.log("Clicked suggestion:", suggestion.term);
-                      const res = await getLLMResponse(suggestion.term);
-                      setLLMResponse(res);
                     }}
                   >
                     {suggestion.term}
@@ -164,13 +127,29 @@ const MedSearchBar = () => {
           <h2 className="mb-4 text-xl font-bold text-green-900">
             LLM Response:
           </h2>
+
+          <div className="mb-4 rounded-md bg-blue-50 p-4">
+            <p className="text-sm font-semibold text-blue-700">
+              Search Term
+            </p>
+            <p className="mt-1 text-base font-medium text-gray-900">
+              {searchTerm}
+            </p>
+          </div>
+
+          <div className="rounded-md border border-gray-100 bg-gray-50 p-4">
+            <p className="whitespace-pre-wrap break-words text-sm leading-6 text-gray-700">
+              {formattedResponse}
+            </p>
+
+          </div>
           <pre className="whitespace-pre-wrap break-words text-sm text-green-700">
             {JSON.stringify(llmResponse, null, 2)}
           </pre>
         </div>
       )}
 
-      {searchResults.length > 0 && (
+      {/* {searchResults.length > 0 && (
         <div className="w-full max-w-2xl rounded-lg bg-white p-4 shadow-md">
           <h2 className="mb-4 text-xl font-bold text-gray-900">
             Search Result:
@@ -239,7 +218,7 @@ const MedSearchBar = () => {
             ))}
           </div>
         </div>
-      )}
+      )} */}
     </div>
   );
 };
