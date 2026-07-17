@@ -1,7 +1,6 @@
-import backendAPI from "./backendAPI";
+import backendAPI from "./backendAPI.ts";
 
 export type SearchResource = {
-    
   title: string;
   url: string;
   snippet?: string;
@@ -15,5 +14,5 @@ export const searchResources = async (
     params: { q: query },
   });
 
-  return response.data.resources
+  return response.data.resources;
 };

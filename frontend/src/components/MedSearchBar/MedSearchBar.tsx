@@ -7,7 +7,7 @@ import {
   type SearchResource,
 } from "../../services/searchResources";
 
-import { getLLMResponse } from "../../services/llm";
+import { getLLMResponse, getLLMResponseForModalities, getLLMResponseForWorksheets } from "../../services/llm";
 
 const MedSearchBar = () => {
   const [searchTerm, setSearchTerm] = useState("");
@@ -23,7 +23,7 @@ const MedSearchBar = () => {
 
   //SerpAPI resources
   const [resources, setResources] = useState<SearchResource[]>([]);
-  const [isSearchching, setIsSearching] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
 
   const debouncedSearchTerm = useDebounce(searchTerm);
@@ -32,6 +32,7 @@ const MedSearchBar = () => {
     console.log("triggered get suggestions");
     console.log("debouncedSearchTerm =", debouncedSearchTerm);
     if (hasSelectedSuggestion) {
+      
       return setSearchSuggestions([]);
     }
 
@@ -64,6 +65,18 @@ const MedSearchBar = () => {
         .replaceAll(",", "\n")
     : "";
 
+  const parseLLMResponse = (value: string | null) => {
+    if (!value) return null;
+
+    try {
+      return JSON.parse(value);
+    } catch {
+      return null;
+    }
+  };
+
+  const parsedResponse = parseLLMResponse(llmResponse);
+
   const handleSearch = async (term: string) => {
     const query = term.trim();
     if (!query) return;
@@ -76,8 +89,22 @@ const MedSearchBar = () => {
       const serpResults = await searchResources(query);
       setResources(serpResults);
 
-      const res = await getLLMResponse(query);
-      setLLMResponse(res);
+      // const res = await getLLMResponse(query, serpResults);
+      // setLLMResponse(res);
+
+      const modalities = await getLLMResponseForModalities(query, serpResults);
+
+      setLLMResponse(modalities);
+
+      const worksheets = await getLLMResponseForWorksheets(query, serpResults);
+      // setLLMResponse(worksheets);
+      setLLMResponse((prev) => {
+        if (prev) {
+          return prev + "\n\n" + worksheets;
+        }
+        return worksheets;
+      });
+
     } catch (error) {
       console.error("Search failed: ", error);
       setSearchError("Search failed. Please try again.");
@@ -144,16 +171,16 @@ const MedSearchBar = () => {
         </div>
       </form>
 
-      {isSearchching && (
+      {isSearching && (
         <p className="mb-4 text-sm text-gray-500">Searching resources...</p>
       )}
 
-      {searchError && <p className="mb-4 text-sm tex-red-600">{searchError}</p>}
+      {searchError && <p className="mb-4 text-sm text-red-600">{searchError}</p>}
 
       {resources.length > 0 && (
         <div className="mb-6 w-full max-w-2xl rounded-lg bg-white p-4 shadow-md">
           <h2 className="mb-4 text-xl font-bold text-gray-900">
-            Rources Result
+            Resources Result
           </h2>
 
           <ul>
@@ -165,7 +192,7 @@ const MedSearchBar = () => {
                 <a
                   href={resource.url}
                   target="_blank"
-                  rel="noopener moreferrer"
+                  rel="noopener noreferrer"
                   className="font-medium text-blue-600 hover:underline"
                 >
                   {resource.title}
@@ -206,6 +233,14 @@ const MedSearchBar = () => {
               {formattedResponse}
             </p>
           </div>
+
+          {
+            parsedResponse && (
+              <div className="w-full max-w-2xl rounded-lg b">
+
+              </div>
+            )
+          }
           <pre className="whitespace-pre-wrap break-words text-sm text-green-700">
             {JSON.stringify(llmResponse, null, 2)}
           </pre>
